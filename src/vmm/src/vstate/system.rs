@@ -83,8 +83,8 @@ impl KvmContext {
             Debugregs,
             MpState,
             VcpuEvents,
-            Xcrs,
-            Xsave,
+            // Xcrs,
+            // Xsave,
             ExtCpuid,
         ];
 

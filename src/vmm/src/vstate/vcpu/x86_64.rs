@@ -392,8 +392,14 @@ impl KvmVcpu {
         let mp_state = self.fd.get_mp_state().map_err(Error::VcpuGetMpState)?;
         let regs = self.fd.get_regs().map_err(Error::VcpuGetRegs)?;
         let sregs = self.fd.get_sregs().map_err(Error::VcpuGetSregs)?;
-        let xsave = self.fd.get_xsave().map_err(Error::VcpuGetXsave)?;
-        let xcrs = self.fd.get_xcrs().map_err(Error::VcpuGetXcrs)?;
+        let xsave = self.fd.get_xsave().ok().or_else(|| {
+            warn!("Xsave not available. Snapshot and restore functionality will be disabled.");
+            None
+        });
+        let xcrs = self.fd.get_xcrs().ok().or_else(|| {
+            warn!("Xcrs not available. Snapshot and restore functionality will be disabled.");
+            None
+        });
         let debug_regs = self.fd.get_debug_regs().map_err(Error::VcpuGetDebugRegs)?;
         let lapic = self.fd.get_lapic().map_err(Error::VcpuGetLapic)?;
         let tsc_khz = self.get_tsc_khz().ok().or_else(|| {
@@ -491,10 +497,12 @@ impl KvmVcpu {
         self.fd
             .set_sregs(&state.sregs)
             .map_err(Error::VcpuSetSregs)?;
-        self.fd
-            .set_xsave(&state.xsave)
-            .map_err(Error::VcpuSetXsave)?;
-        self.fd.set_xcrs(&state.xcrs).map_err(Error::VcpuSetXcrs)?;
+        if let Some(xsave) = &state.xsave {
+            self.fd.set_xsave(xsave).map_err(Error::VcpuSetXsave)?;
+        }
+        if let Some(xcrs) = &state.xcrs {
+            self.fd.set_xcrs(xcrs).map_err(Error::VcpuSetXcrs)?;
+        }
         self.fd
             .set_debug_regs(&state.debug_regs)
             .map_err(Error::VcpuSetDebugRegs)?;
@@ -561,8 +569,8 @@ pub struct VcpuState {
     regs: kvm_regs,
     sregs: kvm_sregs,
     vcpu_events: kvm_vcpu_events,
-    xcrs: kvm_xcrs,
-    xsave: kvm_xsave,
+    xcrs: Option<kvm_xcrs>,
+    xsave: Option<kvm_xsave>,
     #[version(start = 2, default_fn = "default_tsc_khz", ser_fn = "ser_tsc")]
     pub tsc_khz: Option<u32>,
 }
